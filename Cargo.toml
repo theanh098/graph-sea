@@ -1,0 +1,20 @@
+[package]
+name = "graph"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+members = [
+    "database",
+    "migration"
+]
+
+[package.metadata.commands]
+sea-gen = "sea generate entity -l -o database/src --with-serde both"
+
+[dependencies]
+async-graphql = "6.0.7"
+async-graphql-axum = "6.0.7"
+axum = "0.6.20"
+database = { path = "./database" }
