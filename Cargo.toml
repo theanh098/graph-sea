@@ -11,7 +11,7 @@ members = [
 ]
 
 [package.metadata.commands]
-sea-gen = "sea generate entity -o database/src/entities --with-serde both"
+sea-gen = "sea generate entity -o shared/src/database/entities --with-serde both"
 
 [dependencies]
 axum = "0.6.20"

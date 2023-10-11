@@ -7,6 +7,10 @@ pub struct Query;
 #[Object]
 impl Query {
   async fn user(&self, name: String) -> Result<Option<UserModel>> {
-    Ok(Some(UserModel { id: 1, name }))
+    Ok(Some(UserModel {
+      id: 1,
+      name,
+      password: "cmm".into(),
+    }))
   }
 }

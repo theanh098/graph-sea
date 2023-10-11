@@ -12,7 +12,7 @@ impl MigrationTrait for Migration {
       .create_type(
         Type::create()
           .as_enum(Kind::Ref)
-          .values([Kind::Feed, Kind::Story])
+          .values([Kind::Feed, Kind::Story, Kind::Unknown])
           .to_owned(),
       )
       .await?;
@@ -22,7 +22,10 @@ impl MigrationTrait for Migration {
         Table::alter()
           .table(Post::Table)
           .add_column_if_not_exists(
-            ColumnDef::new(NewKindCol::Ref).enumeration(Kind::Ref, [Kind::Feed, Kind::Story]),
+            ColumnDef::new(NewKindCol::Ref)
+              .enumeration(Kind::Ref, [Kind::Feed, Kind::Story, Kind::Unknown])
+              .not_null()
+              .default("unknown"),
           )
           .to_owned(),
       )
@@ -55,10 +58,15 @@ impl MigrationTrait for Migration {
 pub enum Kind {
   #[iden = "kind"]
   Ref,
+
   #[iden = "feed"]
   Feed,
+
   #[iden = "story"]
   Story,
+
+  #[iden = "unknown"]
+  Unknown,
 }
 
 #[derive(Iden)]
