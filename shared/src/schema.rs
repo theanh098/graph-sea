@@ -4,14 +4,19 @@ mod query;
 
 pub use async_graphql::http::GraphiQLSource;
 use async_graphql::{EmptySubscription, Schema};
-use sea_orm::Database;
+use dotenv::dotenv;
+use sea_orm::{Database, DbErr};
 
-pub async fn init_schema() -> Schema<query::Query, mutation::Mutation, EmptySubscription> {
-  let database_connection = Database::connect("postgresql://postgres:vitaminc@localhost:5432/sea")
-    .await
-    .unwrap();
+pub async fn init_schema(
+) -> Result<Schema<query::Query, mutation::Mutation, EmptySubscription>, DbErr> {
+  dotenv().ok();
 
-  Schema::build(query::Query, mutation::Mutation, EmptySubscription)
-    .data(database_connection)
-    .finish()
+  let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+  let database_connection = Database::connect(db_url).await?;
+
+  Ok(
+    Schema::build(query::Query, mutation::Mutation, EmptySubscription)
+      .data(database_connection)
+      .finish(),
+  )
 }

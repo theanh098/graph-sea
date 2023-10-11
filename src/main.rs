@@ -8,7 +8,7 @@ use shared::schema::{init_schema, GraphiQLSource};
 
 #[tokio::main]
 async fn main() {
-  let schema = init_schema().await;
+  let schema = init_schema().await.unwrap_or_else(|err| panic!("{err}"));
 
   let app = Router::new().route("/", get(graphiql).post_service(GraphQL::new(schema)));
 
