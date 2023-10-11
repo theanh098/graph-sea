@@ -6,15 +6,15 @@ edition = "2021"
 [workspace]
 
 members = [
-    "database",
-    "migration"
+    "migration",
+    "shared"
 ]
 
 [package.metadata.commands]
-sea-gen = "sea generate entity -l -o database/src --with-serde both"
+sea-gen = "sea generate entity -o database/src/entities --with-serde both"
 
 [dependencies]
-async-graphql = "6.0.7"
-async-graphql-axum = "6.0.7"
 axum = "0.6.20"
-database = { path = "./database" }
+async-graphql-axum = "6.0.7"
+shared = { path = "./shared" }
+tokio = { version = "1.33.0", features = ["full"] }
