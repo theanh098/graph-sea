@@ -3,14 +3,14 @@ mod mutation;
 mod query;
 
 pub use async_graphql::http::GraphiQLSource;
-use async_graphql::{EmptySubscription, Schema};
-use dotenv::dotenv;
+use async_graphql::{EmptySubscription, Schema as TSchema};
+
 use sea_orm::{Database, DbErr};
 
-pub async fn init_schema(
-) -> Result<Schema<query::Query, mutation::Mutation, EmptySubscription>, DbErr> {
-  dotenv().ok();
+pub type Schema = TSchema<query::Query, mutation::Mutation, EmptySubscription>;
 
+pub async fn init_schema(
+) -> Result<TSchema<query::Query, mutation::Mutation, EmptySubscription>, DbErr> {
   let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
   let database_connection = Database::connect(db_url).await?;
 

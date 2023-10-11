@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 async-graphql = "6.0.7"
-dotenv = "0.15.0"
 sea-orm = { version = "0.12.3", features = ["sqlx-postgres","runtime-tokio-native-tls","macros"] }
 serde = { version = "1.0.188", features = ["derive"] }
+jsonwebtoken = "8.3.0"
+serde_json = "1.0.107"
+axum = "0.6.20"
