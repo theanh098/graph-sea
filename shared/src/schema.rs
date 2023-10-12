@@ -12,6 +12,7 @@ use axum::async_trait;
 use sea_orm::{Database, DatabaseConnection};
 
 pub type Schema = TSchema<query::Query, mutation::Mutation, EmptySubscription>;
+pub type RedisConnection = deadpool_redis::Connection;
 
 pub async fn init_schema() -> TSchema<query::Query, mutation::Mutation, EmptySubscription> {
   let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
@@ -19,8 +20,13 @@ pub async fn init_schema() -> TSchema<query::Query, mutation::Mutation, EmptySub
     .await
     .expect("Failed to connect to database");
 
+  let redis_pool = deadpool_redis::Config::from_url("redis://127.0.0.1/")
+    .create_pool(Some(deadpool_redis::Runtime::Tokio1))
+    .expect("Failed to connect to redis server");
+
   Schema::build(query::Query, mutation::Mutation, EmptySubscription)
     .data(database_connection)
+    .data(redis_pool)
     .finish()
 }
 
@@ -28,26 +34,32 @@ pub async fn init_schema() -> TSchema<query::Query, mutation::Mutation, EmptySub
 pub trait SeaGraphContext {
   async fn get_claims(&self) -> Result<Claims, SeaGraphError>;
   async fn get_database_connection(&self) -> Result<&DatabaseConnection, SeaGraphError>;
+  async fn get_redis_connection(&self) -> Result<deadpool_redis::Connection, SeaGraphError>;
 }
 
 #[async_trait]
 impl<'ctx> SeaGraphContext for Context<'ctx> {
   async fn get_claims(&self) -> Result<Claims, SeaGraphError> {
-    let guard = self
+    self
       .data::<OptionalGuard>()
-      .map_err(|err| SeaGraphError::ExecutionError(err.message))?;
-
-    match guard.into_inner() {
-      None => Err(SeaGraphError::AuthenticationError),
-      Some(claims) => Ok(claims),
-    }
+      .map_err(|err| SeaGraphError::ExecutionError(err.message))
+      .and_then(|guard| guard.into_inner().ok_or(SeaGraphError::AuthenticationError))
   }
 
   async fn get_database_connection(&self) -> Result<&DatabaseConnection, SeaGraphError> {
-    let conn = self
+    self
       .data::<DatabaseConnection>()
+      .map_err(|err| SeaGraphError::ExecutionError(err.message))
+  }
+
+  async fn get_redis_connection(&self) -> Result<deadpool_redis::Connection, SeaGraphError> {
+    let pool = self
+      .data::<deadpool_redis::Pool>()
       .map_err(|err| SeaGraphError::ExecutionError(err.message))?;
 
-    Ok(conn)
+    pool
+      .get()
+      .await
+      .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))
   }
 }

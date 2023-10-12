@@ -1,3 +1,5 @@
+use crate::error::SeaGraphError;
+use crate::{database::entities::user::Model as UserEntity, schema::RedisConnection};
 use axum::{
   async_trait,
   extract::FromRequestParts,
@@ -5,14 +7,25 @@ use axum::{
   http::request::Parts,
   RequestPartsExt, TypedHeader,
 };
-use jsonwebtoken::{DecodingKey, Validation};
+use chrono::Utc;
+use jsonwebtoken::{encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
   pub id: i32,
-  pub exp: u32,
   pub name: String,
+  pub exp: u32,
+}
+
+impl Claims {
+  pub fn new(id: i32, name: String, expired: chrono::Duration) -> Self {
+    Self {
+      id,
+      name,
+      exp: Utc::now().checked_add_signed(expired).unwrap().timestamp() as u32,
+    }
+  }
 }
 
 pub struct OptionalGuard(pub Option<Claims>);
@@ -47,4 +60,36 @@ where
         })
       })
   }
+}
+
+pub async fn generate_tokens(
+  user: UserEntity,
+  redis_connection: &mut RedisConnection,
+) -> Result<(String, String), SeaGraphError> {
+  let access_token_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+  let refresh_token_secret =
+    std::env::var("JWT_REFRESH_SECRET").expect("JWT_REFRESH_SECRET must be set");
+
+  let access_token = encode(
+    &Header::default(),
+    &Claims::new(user.id, user.name.clone(), chrono::Duration::days(3)),
+    &EncodingKey::from_secret(access_token_secret.as_bytes()),
+  )
+  .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))?;
+
+  let refresh_token = encode(
+    &Header::default(),
+    &Claims::new(user.id, user.name, chrono::Duration::days(180)),
+    &EncodingKey::from_secret(refresh_token_secret.as_bytes()),
+  )
+  .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))?;
+
+  deadpool_redis::redis::cmd("SET")
+    .arg(format!("refresh_token_on_user_{}", user.id).as_str())
+    .arg(&refresh_token)
+    .query_async(redis_connection)
+    .await
+    .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))?;
+
+  Ok((access_token, refresh_token))
 }

@@ -10,14 +10,17 @@ impl<'r> UserRepository<'r> {
     Self(conn)
   }
 
-  pub async fn create(
+  pub async fn create<'s>(
     &self,
-    name: impl ToString,
-    password: impl ToString,
+    name: &'s str,
+    password: &'s str,
   ) -> Result<user::Model, SeaGraphError> {
+    let hash_password = bcrypt::hash(password.as_bytes(), 8)
+      .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))?;
+
     user::ActiveModel {
-      name: Set(name.to_string()),
-      password: Set(password.to_string()),
+      name: Set(name.into()),
+      password: Set(hash_password.into()),
       ..Default::default()
     }
     .insert(self.0)
@@ -31,13 +34,11 @@ impl<'r> UserRepository<'r> {
       .await
       .map_err(|err| SeaGraphError::DatabaseSeaError(err.to_string()))
       .and_then(|record| {
-        record
-          .ok_or(SeaGraphError::DatabaseRecordNotFoundError {
-            table: "user".into(),
-            col: "id".into(),
-            value: id.to_string(),
-          })
-          .and_then(|user| Ok(user))
+        record.ok_or(SeaGraphError::DatabaseRecordNotFoundError {
+          table: "user".into(),
+          col: "id".into(),
+          value: id.to_string(),
+        })
       })
   }
 }

@@ -9,6 +9,7 @@ pub struct Query;
 
 #[Object]
 impl Query {
+  #[graphql(name = "me")]
   async fn get_me<'ctx>(&self, ctx: &Context<'ctx>) -> Result<UserModel, SeaGraphError> {
     let claims = ctx.get_claims().await?;
     let conn = ctx.get_database_connection().await?;

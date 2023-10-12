@@ -8,14 +8,14 @@ use axum::{
 use dotenv::dotenv;
 use shared::{
   schema::{init_schema, GraphiQLSource, Schema},
-  security::authentication::Claims,
+  security::authentication::OptionalGuard,
 };
 
 #[tokio::main]
 async fn main() {
   dotenv().ok();
 
-  let schema = init_schema().await.unwrap_or_else(|err| panic!("{err}"));
+  let schema = init_schema().await;
 
   let app = Router::new().route("/", get(graphiql).post(graphql_handler).with_state(schema));
 
@@ -32,9 +32,9 @@ async fn graphiql() -> impl IntoResponse {
 }
 
 async fn graphql_handler(
-  claims: Claims,
+  guard: OptionalGuard,
   schema: State<Schema>,
   req: GraphQLRequest,
 ) -> GraphQLResponse {
-  schema.execute(req.into_inner().data(claims)).await.into()
+  schema.execute(req.into_inner().data(guard)).await.into()
 }

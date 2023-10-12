@@ -3,12 +3,12 @@ use async_graphql::SimpleObject;
 
 #[derive(SimpleObject)]
 pub struct UserModel {
-  pub id: i32,
+  id: i32,
 
-  pub name: String,
+  name: String,
 
   #[graphql(visible = false)]
-  pub password: String,
+  password: String,
 }
 
 impl From<UserEntity> for UserModel {
