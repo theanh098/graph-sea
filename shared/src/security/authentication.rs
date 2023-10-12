@@ -2,68 +2,49 @@ use axum::{
   async_trait,
   extract::FromRequestParts,
   headers::{authorization::Bearer, Authorization},
-  http::{request::Parts, StatusCode},
-  response::{IntoResponse, Response},
-  Json, RequestPartsExt, TypedHeader,
+  http::request::Parts,
+  RequestPartsExt, TypedHeader,
 };
-use jsonwebtoken::{errors::ErrorKind, DecodingKey, Validation};
+use jsonwebtoken::{DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
   pub id: i32,
   pub exp: u32,
   pub name: String,
 }
 
+pub struct OptionalGuard(pub Option<Claims>);
+
+impl OptionalGuard {
+  pub fn into_inner(&self) -> Option<Claims> {
+    self.0.clone()
+  }
+}
+
 #[async_trait]
-impl<S> FromRequestParts<S> for Claims
+impl<S> FromRequestParts<S> for OptionalGuard
 where
   S: Send + Sync,
 {
-  type Rejection = AuthError;
+  type Rejection = ();
 
   async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
     let access_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set.");
 
-    let TypedHeader(Authorization(bearer)) = parts
+    parts
       .extract::<TypedHeader<Authorization<Bearer>>>()
       .await
-      .map_err(|err| AuthError::InvalidToken(err.to_string()))?;
-
-    let token_data = jsonwebtoken::decode::<Claims>(
-      bearer.token(),
-      &DecodingKey::from_secret(access_secret.as_bytes()),
-      &Validation::default(),
-    )
-    .map_err(|err| {
-      if let ErrorKind::ExpiredSignature = err.kind() {
-        AuthError::ExpiredSignature
-      } else {
-        AuthError::InvalidToken(err.to_string())
-      }
-    })?;
-
-    Ok(token_data.claims)
-  }
-}
-
-pub enum AuthError {
-  InvalidToken(String),
-  ExpiredSignature,
-}
-
-impl IntoResponse for AuthError {
-  fn into_response(self) -> Response {
-    let (status, error_message) = match self {
-      AuthError::InvalidToken(ref reason) => (StatusCode::BAD_REQUEST, reason.as_str()),
-      AuthError::ExpiredSignature => (StatusCode::UNAUTHORIZED, "Expired Signature"),
-    };
-
-    let body = Json(serde_json::json!({
-        "error": error_message,
-    }));
-
-    (status, body).into_response()
+      .map_or(Ok(OptionalGuard(None)), |bearer| {
+        jsonwebtoken::decode::<Claims>(
+          bearer.token(),
+          &DecodingKey::from_secret(access_secret.as_bytes()),
+          &Validation::default(),
+        )
+        .map_or(Ok(OptionalGuard(None)), |token_data| {
+          Ok(OptionalGuard(Some(token_data.claims)))
+        })
+      })
   }
 }

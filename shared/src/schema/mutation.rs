@@ -1,19 +1,22 @@
-use super::models::user::UserModel;
+use super::{models::user::UserModel, SeaGraphContext};
 use crate::database::repositories::user::UserRepository;
+use crate::error::SeaGraphError;
 use async_graphql::{Context, Object, Result};
-use sea_orm::DatabaseConnection;
 
 pub struct Mutation;
 
 #[Object]
 impl Mutation {
-  async fn signup<'ctx>(&self, ctx: &Context<'ctx>, name: String) -> Result<UserModel> {
-    let conn = ctx.data::<DatabaseConnection>().unwrap();
+  async fn signup<'ctx>(
+    &self,
+    ctx: &Context<'ctx>,
+    name: String,
+    password: String,
+  ) -> Result<UserModel, SeaGraphError> {
+    let conn = ctx.get_database_connection().await?;
 
-    let user_repository = UserRepository::new(conn);
+    let user = UserRepository::new(conn).create(name, password).await?;
 
-    let u = user_repository.create(name).await.unwrap();
-
-    Ok(u)
+    Err(SeaGraphError::AuthenticationError)
   }
 }

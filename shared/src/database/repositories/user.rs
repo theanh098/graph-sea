@@ -1,6 +1,8 @@
-use crate::database::entities;
-use crate::schema::models::user::UserModel;
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, DbErr};
+use crate::{
+  database::entities::{prelude::User, user},
+  error::SeaGraphError,
+};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait};
 pub struct UserRepository<'r>(&'r DatabaseConnection);
 
 impl<'r> UserRepository<'r> {
@@ -8,14 +10,34 @@ impl<'r> UserRepository<'r> {
     Self(conn)
   }
 
-  pub async fn create(&self, name: impl ToString) -> Result<UserModel, DbErr> {
-    let r = entities::user::ActiveModel {
+  pub async fn create(
+    &self,
+    name: impl ToString,
+    password: impl ToString,
+  ) -> Result<user::Model, SeaGraphError> {
+    user::ActiveModel {
       name: Set(name.to_string()),
+      password: Set(password.to_string()),
       ..Default::default()
     }
     .insert(self.0)
-    .await?;
+    .await
+    .map_err(|err| SeaGraphError::DatabaseSeaError(err.to_string()))
+  }
 
-    Ok(UserModel::from(r))
+  pub async fn get_user_by_id(&self, id: i32) -> Result<user::Model, SeaGraphError> {
+    User::find_by_id(id)
+      .one(self.0)
+      .await
+      .map_err(|err| SeaGraphError::DatabaseSeaError(err.to_string()))
+      .and_then(|record| {
+        record
+          .ok_or(SeaGraphError::DatabaseRecordNotFoundError {
+            table: "user".into(),
+            col: "id".into(),
+            value: id.to_string(),
+          })
+          .and_then(|user| Ok(user))
+      })
   }
 }
