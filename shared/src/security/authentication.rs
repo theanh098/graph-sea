@@ -1,4 +1,4 @@
-use crate::error::SeaGraphError;
+use crate::error::AppError;
 use crate::{database::entities::user::Model as UserEntity, schema::RedisConnection};
 use axum::{
   async_trait,
@@ -65,7 +65,7 @@ where
 pub async fn generate_tokens(
   user: UserEntity,
   redis_connection: &mut RedisConnection,
-) -> Result<(String, String), SeaGraphError> {
+) -> Result<(String, String), AppError> {
   let access_token_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
   let refresh_token_secret =
     std::env::var("JWT_REFRESH_SECRET").expect("JWT_REFRESH_SECRET must be set");
@@ -75,21 +75,21 @@ pub async fn generate_tokens(
     &Claims::new(user.id, user.name.clone(), chrono::Duration::days(3)),
     &EncodingKey::from_secret(access_token_secret.as_bytes()),
   )
-  .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))?;
+  .map_err(|err| AppError::ExecutionError(err.to_string()))?;
 
   let refresh_token = encode(
     &Header::default(),
     &Claims::new(user.id, user.name, chrono::Duration::days(180)),
     &EncodingKey::from_secret(refresh_token_secret.as_bytes()),
   )
-  .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))?;
+  .map_err(|err| AppError::ExecutionError(err.to_string()))?;
 
   deadpool_redis::redis::cmd("SET")
     .arg(format!("refresh_token_on_user_{}", user.id).as_str())
     .arg(&refresh_token)
     .query_async(redis_connection)
     .await
-    .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))?;
+    .map_err(|err| AppError::ExecutionError(err.to_string()))?;
 
   Ok((access_token, refresh_token))
 }

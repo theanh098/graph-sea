@@ -2,7 +2,7 @@ pub mod models;
 mod mutation;
 mod query;
 
-use crate::error::SeaGraphError;
+use crate::error::AppError;
 use crate::security::authentication::{Claims, OptionalGuard};
 pub use async_graphql::http::GraphiQLSource;
 use async_graphql::Context;
@@ -32,34 +32,34 @@ pub async fn init_schema() -> TSchema<query::Query, mutation::Mutation, EmptySub
 
 #[async_trait]
 pub trait SeaGraphContext {
-  async fn get_claims(&self) -> Result<Claims, SeaGraphError>;
-  async fn get_database_connection(&self) -> Result<&DatabaseConnection, SeaGraphError>;
-  async fn get_redis_connection(&self) -> Result<deadpool_redis::Connection, SeaGraphError>;
+  async fn get_claims(&self) -> Result<Claims, AppError>;
+  async fn get_database_connection(&self) -> Result<&DatabaseConnection, AppError>;
+  async fn get_redis_connection(&self) -> Result<deadpool_redis::Connection, AppError>;
 }
 
 #[async_trait]
 impl<'ctx> SeaGraphContext for Context<'ctx> {
-  async fn get_claims(&self) -> Result<Claims, SeaGraphError> {
+  async fn get_claims(&self) -> Result<Claims, AppError> {
     self
       .data::<OptionalGuard>()
-      .map_err(|err| SeaGraphError::ExecutionError(err.message))
-      .and_then(|guard| guard.into_inner().ok_or(SeaGraphError::AuthenticationError))
+      .map_err(|err| AppError::ExecutionError(err.message))
+      .and_then(|guard| guard.into_inner().ok_or(AppError::AuthenticationError))
   }
 
-  async fn get_database_connection(&self) -> Result<&DatabaseConnection, SeaGraphError> {
+  async fn get_database_connection(&self) -> Result<&DatabaseConnection, AppError> {
     self
       .data::<DatabaseConnection>()
-      .map_err(|err| SeaGraphError::ExecutionError(err.message))
+      .map_err(|err| AppError::ExecutionError(err.message))
   }
 
-  async fn get_redis_connection(&self) -> Result<deadpool_redis::Connection, SeaGraphError> {
+  async fn get_redis_connection(&self) -> Result<deadpool_redis::Connection, AppError> {
     let pool = self
       .data::<deadpool_redis::Pool>()
-      .map_err(|err| SeaGraphError::ExecutionError(err.message))?;
+      .map_err(|err| AppError::ExecutionError(err.message))?;
 
     pool
       .get()
       .await
-      .map_err(|err| SeaGraphError::ExecutionError(err.to_string()))
+      .map_err(|err| AppError::ExecutionError(err.to_string()))
   }
 }

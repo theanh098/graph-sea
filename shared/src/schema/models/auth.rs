@@ -1,5 +1,5 @@
 use crate::{
-  database::entities::user::Model as UserEntity, error::SeaGraphError, schema::RedisConnection,
+  database::entities::user::Model as UserEntity, error::AppError, schema::RedisConnection,
   security::authentication::generate_tokens,
 };
 use async_graphql::SimpleObject;
@@ -15,7 +15,7 @@ impl Tokens {
   pub async fn from_entity(
     user: UserEntity,
     redis_connection: &mut RedisConnection,
-  ) -> Result<Self, SeaGraphError> {
+  ) -> Result<Self, AppError> {
     let (access_token, refresh_token) = generate_tokens(user, redis_connection).await?;
 
     Ok(Self {

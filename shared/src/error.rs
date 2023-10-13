@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
-pub enum SeaGraphError {
+#[derive(Debug)]
+pub enum AppError {
   AuthenticationError,
   ExecutionError(String),
   DatabaseSeaError(String),
@@ -11,9 +12,9 @@ pub enum SeaGraphError {
   },
 }
 
-impl Display for SeaGraphError {
+impl Display for AppError {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    use SeaGraphError::*;
+    use AppError::*;
 
     match self {
       AuthenticationError => write!(f, "UnAuthorized"),
