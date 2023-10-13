@@ -6,12 +6,12 @@ use async_graphql::SimpleObject;
 
 #[derive(SimpleObject)]
 #[graphql(rename_fields = "camelCase")]
-pub struct AuthResponse {
+pub struct Tokens {
   access_token: String,
   refresh_token: String,
 }
 
-impl AuthResponse {
+impl Tokens {
   pub async fn from_entity(
     user: UserEntity,
     redis_connection: &mut RedisConnection,
