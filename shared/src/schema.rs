@@ -3,7 +3,7 @@ mod mutation;
 mod query;
 
 use crate::error::AppError;
-use crate::security::authentication::{Claims, OptionalGuard};
+use crate::security::authentication::{Claims, Guard};
 pub use async_graphql::http::GraphiQLSource;
 use async_graphql::Context;
 use async_graphql::{EmptySubscription, Schema as TSchema};
@@ -41,9 +41,13 @@ pub trait SeaGraphContext {
 impl<'ctx> SeaGraphContext for Context<'ctx> {
   async fn get_claims(&self) -> Result<Claims, AppError> {
     self
-      .data::<OptionalGuard>()
+      .data::<Guard>()
       .map_err(|err| AppError::ExecutionError(err.message))
-      .and_then(|guard| guard.into_inner().ok_or(AppError::AuthenticationError))
+      .and_then(|guard| {
+        guard
+          .retrieve_claims()
+          .ok_or(AppError::UnAuthorized(guard.retrieve_err_msg()))
+      })
   }
 
   async fn get_database_connection(&self) -> Result<&DatabaseConnection, AppError> {
@@ -53,13 +57,15 @@ impl<'ctx> SeaGraphContext for Context<'ctx> {
   }
 
   async fn get_redis_connection(&self) -> Result<deadpool_redis::Connection, AppError> {
-    let pool = self
+    self
       .data::<deadpool_redis::Pool>()
-      .map_err(|err| AppError::ExecutionError(err.message))?;
-
-    pool
-      .get()
+      .map_err(|err| AppError::ExecutionError(err.message))
+      .map(|pool| async {
+        pool
+          .get()
+          .await
+          .map_err(|err| AppError::ExecutionError(err.to_string()))
+      })?
       .await
-      .map_err(|err| AppError::ExecutionError(err.to_string()))
   }
 }

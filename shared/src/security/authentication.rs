@@ -8,6 +8,7 @@ use axum::{
   RequestPartsExt, TypedHeader,
 };
 use chrono::Utc;
+use jsonwebtoken::errors::ErrorKind;
 use jsonwebtoken::{encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 
@@ -28,16 +29,20 @@ impl Claims {
   }
 }
 
-pub struct OptionalGuard(pub Option<Claims>);
+pub struct Guard(pub Option<Claims>, pub &'static str);
 
-impl OptionalGuard {
-  pub fn into_inner(&self) -> Option<Claims> {
+impl Guard {
+  pub fn retrieve_claims(&self) -> Option<Claims> {
     self.0.clone()
+  }
+
+  pub fn retrieve_err_msg(&self) -> &'static str {
+    self.1
   }
 }
 
 #[async_trait]
-impl<S> FromRequestParts<S> for OptionalGuard
+impl<S> FromRequestParts<S> for Guard
 where
   S: Send + Sync,
 {
@@ -49,15 +54,19 @@ where
     parts
       .extract::<TypedHeader<Authorization<Bearer>>>()
       .await
-      .map_or(Ok(OptionalGuard(None)), |bearer| {
+      .map_or(Ok(Guard(None, "Missing Bearer token")), |bearer| {
         jsonwebtoken::decode::<Claims>(
           bearer.token(),
           &DecodingKey::from_secret(access_secret.as_bytes()),
           &Validation::default(),
         )
-        .map_or(Ok(OptionalGuard(None)), |token_data| {
-          Ok(OptionalGuard(Some(token_data.claims)))
-        })
+        .map_or_else(
+          |err| match err.kind() {
+            ErrorKind::ExpiredSignature => Ok(Guard(None, "Expired token")),
+            _ => Ok(Guard(None, "Invalid token")),
+          },
+          |token_data| Ok(Guard(Some(token_data.claims), "")),
+        )
       })
   }
 }

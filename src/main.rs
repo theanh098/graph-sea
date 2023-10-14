@@ -8,7 +8,7 @@ use axum::{
 use dotenv::dotenv;
 use shared::{
   schema::{init_schema, GraphiQLSource, Schema},
-  security::authentication::OptionalGuard,
+  security::authentication::Guard,
 };
 
 #[tokio::main]
@@ -32,7 +32,7 @@ async fn graphiql() -> impl IntoResponse {
 }
 
 async fn graphql_handler(
-  guard: OptionalGuard,
+  guard: Guard,
   schema: State<Schema>,
   req: GraphQLRequest,
 ) -> GraphQLResponse {

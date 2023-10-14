@@ -1,10 +1,18 @@
-use std::fmt::Display;
+use async_graphql::{Error, ErrorExtensionValues, ErrorExtensions};
+use axum::http::StatusCode;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum AppError {
-  AuthenticationError,
+  #[error("UnAuthorized")]
+  UnAuthorized(&'static str),
+
+  #[error("Server Error")]
   ExecutionError(String),
+
+  #[error("Server Error")]
   DatabaseSeaError(String),
+
+  #[error("Server Error")]
   DatabaseRecordNotFoundError {
     table: String,
     col: String,
@@ -12,21 +20,35 @@ pub enum AppError {
   },
 }
 
-impl Display for AppError {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl ErrorExtensions for AppError {
+  fn extend(&self) -> Error {
     use AppError::*;
 
-    match self {
-      AuthenticationError => write!(f, "UnAuthorized"),
-      ExecutionError(reason) => write!(f, "ExecutionError reason: {}", reason),
-      DatabaseSeaError(reason) => write!(f, "DatabaseSeaError reason: {}", reason),
-      DatabaseRecordNotFoundError { col, table, value } => {
-        write!(
-          f,
+    Error::new(format!("{}", self)).extend_with(|_err, e| match self {
+      UnAuthorized(reason) => specific_code_and_reason(StatusCode::UNAUTHORIZED, reason, e),
+
+      ExecutionError(reason) => {
+        specific_code_and_reason(StatusCode::INTERNAL_SERVER_ERROR, reason, e)
+      }
+
+      DatabaseSeaError(reason) => {
+        specific_code_and_reason(StatusCode::INTERNAL_SERVER_ERROR, reason, e)
+      }
+
+      DatabaseRecordNotFoundError { col, table, value } => specific_code_and_reason(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        format!(
           "DatabaseRecordNotFoundError reason: Not found record on table {} with {} is {}",
           table, col, value
         )
-      }
-    }
+        .as_str(),
+        e,
+      ),
+    })
   }
+}
+
+fn specific_code_and_reason(code: StatusCode, reason: &str, err_ext: &mut ErrorExtensionValues) {
+  err_ext.set("code", code.as_u16());
+  err_ext.set("reason", reason);
 }

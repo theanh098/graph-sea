@@ -5,7 +5,6 @@ use crate::{
 use async_graphql::SimpleObject;
 
 #[derive(SimpleObject)]
-#[graphql(rename_fields = "camelCase")]
 pub struct Tokens {
   access_token: String,
   refresh_token: String,
