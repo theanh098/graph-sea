@@ -1,10 +1,12 @@
-use async_graphql::{Context, ErrorExtensions, Object, Result};
-
-use crate::{database::repositories::user::UserRepository, error::AppError};
-
-use super::{models::user::UserModel, SeaGraphContext};
-
+use super::models::{paginate::Paginate, post::PostModel, user::UserModel};
+use async_graphql::{Context, ErrorExtensions, InputObject, Object, Result};
 pub struct Query;
+
+#[derive(InputObject)]
+struct Coordinate {
+  take: i32,
+  cursor: i32,
+}
 
 #[Object]
 impl Query {
@@ -12,20 +14,14 @@ impl Query {
   async fn get_me<'ctx>(&self, ctx: &Context<'ctx>) -> Result<UserModel> {
     Self::impl_get_me(ctx).await.map_err(|err| err.extend())
   }
-}
 
-impl Query {
-  async fn impl_get_me<'ctx>(ctx: &Context<'ctx>) -> Result<UserModel, AppError> {
-    let claims = ctx.get_claims().await?;
-    ctx
-      .get_database_connection()
+  async fn get_posts<'ctx>(
+    &self,
+    ctx: &Context<'ctx>,
+    option: Coordinate,
+  ) -> Result<Paginate<PostModel>> {
+    Self::impl_get_posts(ctx, option.take, option.cursor)
       .await
-      .map(|conn| async move {
-        UserRepository::new(conn)
-          .get_user_by_id(claims.id)
-          .await
-          .map(|user| UserModel::from(user))
-      })?
-      .await
+      .map_err(|err| err.extend())
   }
 }

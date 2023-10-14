@@ -15,7 +15,10 @@ use shared::{
 async fn main() {
   dotenv().ok();
 
+  tracing_subscriber::fmt().with_test_writer().init();
   let schema = init_schema().await;
+
+  tokio::fs::write("schema.gql", schema.sdl()).await.unwrap();
 
   let app = Router::new().route("/", get(graphiql).post(graphql_handler).with_state(schema));
 

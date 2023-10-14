@@ -1,7 +1,7 @@
 use crate::database::entities::user::Model as UserEntity;
 use async_graphql::SimpleObject;
 
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Default)]
 pub struct UserModel {
   id: i32,
 

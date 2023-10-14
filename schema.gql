@@ -1,0 +1,49 @@
+
+input Coordinate {
+	take: Int!
+	cursor: Int!
+}
+
+
+
+
+type Mutation {
+	signup(name: String!, password: String!): Tokens!
+	signIn(name: String!, password: String!): Tokens!
+}
+
+type Paginate {
+	nodes: [PostModel!]!
+	count: Int!
+	cursor: Int!
+	hasNext: Boolean!
+}
+
+type PostModel {
+	id: Int!
+	title: String!
+	text: String!
+	author: UserModel!
+}
+
+type Query {
+	me: UserModel!
+	getPosts(option: Coordinate!): Paginate!
+}
+
+
+type Tokens {
+	accessToken: String!
+	refreshToken: String!
+}
+
+type UserModel {
+	id: Int!
+	name: String!
+	password: String!
+}
+
+schema {
+	query: Query
+	mutation: Mutation
+}
